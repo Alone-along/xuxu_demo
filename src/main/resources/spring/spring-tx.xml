@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:context="http://www.springframework.org/schema/context" xmlns:tx="http://www.springframework.org/schema/tx"
+       xmlns:aop="http://www.springframework.org/schema/aop"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx.xsd http://www.springframework.org/schema/aop http://www.springframework.org/schema/aop/spring-aop.xsd">
+
+
+    <!-- 加载数据库配置文件 -->
+    <!-- 如果没有配置自动扫描的包,我们切面什么的不能使用 -->
+    <context:property-placeholder location="classpath:properties/dbconfig.properties"/>
+
+    
+    <!-- 配置自动扫描的包-->
+    <context:component-scan base-package="com.alone.xiangqin.service"/>
+    <context:component-scan base-package="com.alone.xiangqin.mapper"/>
+
+    <!-- 配置数据源 -->
+    <bean class="com.jolbox.bonecp.BoneCPDataSource" id="dataSource" destroy-method="close">
+        <!-- 数据库驱动 -->
+        <property name="driverClass" value="${jdbc.driver}"/>
+        <!-- 相应驱动的jdbcUrl -->
+        <property name="jdbcUrl" value="${jdbc.url}"/>
+        <!-- 数据库的用户名 -->
+        <property name="username" value="${jdbc.user}"/>
+        <!-- 数据库的密码 -->
+        <property name="password" value="${jdbc.password}"/>
+        <!-- 检查数据库连接池中空闲连接的间隔时间，单位是分，默认值：240，如果要取消则设置为0 -->
+        <property name="idleConnectionTestPeriod" value="60"/>
+        <!-- 连接池中未使用的链接最大存活时间，单位是分，默认值：60，如果要永远存活设置为0 -->
+        <property name="idleMaxAge" value="30"/>
+        <!-- 每个分区最大的连接数 -->
+        <property name="maxConnectionsPerPartition" value="150"/>
+        <!-- 每个分区最小的连接数 -->
+        <property name="minConnectionsPerPartition" value="5"/>
+    </bean>
+
+
+    <!--配置 SqlSessionFactoryBean -->
+    <bean class="org.mybatis.spring.SqlSessionFactoryBean" id="sqlSessionFactory">
+        <property name="dataSource" ref="dataSource"></property>
+
+        <!-- 指定Mybatis 的配置文件位置  -->
+        <property name="configLocation" value="classpath:mybatis/mybais-config.xml"></property>
+    </bean>
+
+    <!-- 配置 Mapper 所在位置 自动扫描-->
+    <bean class="org.mybatis.spring.mapper.MapperScannerConfigurer" id="mapperScannerConfigurer">
+        <property name="basePackage" value="com.alone.xiangqin.mapper"></property>
+    </bean>
+
+
+    <!-- 配置事物管理器  -->
+    <bean id="transactionManager" class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+        <property name="dataSource" ref="dataSource"></property>
+    </bean>
+
+    <!-- 配置事物通知 -->
+    <tx:advice transaction-manager="transactionManager" id="interceptor">
+        <tx:attributes>
+            <!-- propagation 的默认值就是 REQUIRED  如果需要指定为 REQUIRED 就不用写了-->
+            <tx:method name="save*"/>
+            <tx:method name="insert*"/>
+            <tx:method name="add*"/>
+            <tx:method name="create*"/>
+            <tx:method name="delete*"/>
+            <tx:method name="update*"/>
+
+            <!-- 做查询的时候,有这个事物我们就用,没有我们就不使用 返回单个值,我们使用 get 或者 find 即可-->
+            <tx:method name="find*" propagation="SUPPORTS" read-only="true"/>
+            <tx:method name="get*" propagation="SUPPORTS" read-only="true"/>
+
+            <!-- 查询返回多个的时候使用 list 或者 select -->
+            <tx:method name="select*" propagation="SUPPORTS" read-only="true"/>
+            <tx:method name="list*" propagation="SUPPORTS" read-only="true"/>
+
+        </tx:attributes>
+    </tx:advice>
+
+    <!--配置事物切面-->
+    <!--com.alone.xiangqin.service.impl-->
+    <aop:config>
+        <!--配置切面表达式-->
+        <aop:pointcut id="tx_pointcut" expression="execution(* com.alone.xiangqin.service.*.*(..))"/>
+
+        <!-- 使用切面 -->
+        <aop:advisor advice-ref="interceptor" pointcut-ref="tx_pointcut"/>
+    </aop:config>
+
+</beans>
